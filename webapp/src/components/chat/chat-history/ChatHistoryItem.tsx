@@ -19,7 +19,8 @@ import {
     ThumbDislikeFilled,
     ThumbLikeFilled,
 } from '@fluentui/react-icons';
-import React, { useState } from 'react';
+import mermaid from 'mermaid';
+import React, { useEffect, useRef, useState } from 'react';
 import { useChat } from '../../../libs/hooks/useChat';
 import { AuthorRoles, ChatMessageType, IChatMessage, UserFeedback } from '../../../libs/models/ChatMessage';
 import { useAppSelector } from '../../../redux/app/hooks';
@@ -112,6 +113,7 @@ interface ChatHistoryItemProps {
 export const ChatHistoryItem: React.FC<ChatHistoryItemProps> = ({ message, messageIndex }) => {
     const classes = useClasses();
     const chat = useChat();
+    const outputRef = useRef<HTMLDivElement | null>(null);
 
     const { conversations, selectedId } = useAppSelector((state: RootState) => state.conversations);
     const { activeUserInfo, features } = useAppSelector((state: RootState) => state.app);
@@ -164,6 +166,53 @@ export const ChatHistoryItem: React.FC<ChatHistoryItemProps> = ({ message, messa
     const showMessageCitation = messageCitations.length > 0;
     const showExtra = showMessageCitation || showShowRLHFMessage || showCitationCards;
 
+    useEffect(() => {
+        // Initialize Mermaid
+        mermaid.initialize({ startOnLoad: true });
+
+        // Optional: Ensure Mermaid is loaded, you might want to dynamically load the library
+        // and only execute this effect once the library is confirmed to be loaded.
+    }, []);
+
+    useEffect(() => {
+        // Render the diagram
+        if (hasMermaidScript(message.content)) {
+            void renderDiagram(message.content);
+        }
+    }, [message.content]);
+
+    async function renderDiagram(input: string) {
+        if (outputRef.current && input) {
+            try {
+                const { svg } = await mermaid.render('theGraph', extractMermaidScript(input));
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                outputRef.current.innerHTML = svg;
+            } catch (error) {
+                const { svg } = await mermaid.render('theGraph', 'graph TD; A-->B');
+                outputRef.current.innerHTML = svg;
+            }
+        }
+    }
+    const hasMermaidScript = (content: string) => {
+        const mermaidPattern = /```mermaid|flowchart|graph\s|\n.*graph\s|\n.*flowchart/g;
+        return mermaidPattern.test(content);
+    };
+
+    function extractMermaidScript(text: string | null) {
+        if (!text) return 'graph TD; A-->B';
+        // Define a regular expression pattern to match Mermaid script
+        const mermaidPattern = /```mermaid([\s\S]*?)```/g;
+        const matches = text.match(mermaidPattern);
+
+        if (matches) {
+            // Extract the Mermaid script from the matched sections
+            const mermaidScripts = matches.map((match) => match.replace(/```mermaid|```/g, '').trim());
+            console.log(mermaidScripts.join('\n'));
+            return mermaidScripts.join('\n');
+        } else {
+            return 'graph TD; A-->B'; // No Mermaid script found
+        }
+    }
     return (
         <div
             className={isMe ? mergeClasses(classes.root, classes.alignEnd) : classes.root}
@@ -201,6 +250,7 @@ export const ChatHistoryItem: React.FC<ChatHistoryItemProps> = ({ message, messa
                     )}
                 </div>
                 {content}
+                <div ref={outputRef}></div>
                 {showExtra && (
                     <div className={classes.controls}>
                         {showMessageCitation && (

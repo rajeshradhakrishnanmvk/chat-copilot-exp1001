@@ -498,3 +498,8 @@ tmp/*
 # Custom plugins in default directories
 */Skills/NativePlugins
 */Skills/SemanticPlugins
+
+myExp/*
+.vscode/*
+tmp-cache
+tmp-database
